@@ -1,0 +1,38 @@
+{
+  "name": "dsh-todo-keeper",
+  "description": "DSH host plugin that keeps the agent's task list honest: injects a reminder when the model goes many tool calls without updating todo_write, and warns when it batch-checks items at the end. Pure plugin, no core changes.",
+  "version": "0.1.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "todo",
+    "task-list",
+    "agent",
+    "reminder"
+  ],
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/index.js",
+    "test/run.mjs"
+  ],
+  "scripts": {
+    "test": "node test/run.mjs",
+    "bundle": "echo noop: plain JS host plugin; edit lib/index.js directly"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/imcaibaicai/dsh-todo-keeper.git"
+  }
+}
