@@ -1,7 +1,7 @@
 {
   "name": "dsh-todo-keeper",
   "description": "DSH host plugin that keeps the agent's task list honest: injects a reminder when the model goes many tool calls without updating todo_write, and warns when it batch-checks items at the end. Pure plugin, no core changes.",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "publishConfig": {
     "access": "public"
   },

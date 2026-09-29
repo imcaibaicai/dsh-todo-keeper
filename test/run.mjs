@@ -71,7 +71,7 @@ console.log("\n[2] 启用清单后，按阈值注入陈旧提醒");
 	check("第 4 次注入提醒", at4.additionalContexts?.length === 1);
 	check("提醒文案含连跑次数", text4.includes("连续 4 次"), text4.slice(0, 80));
 	check("提醒文案含上次清单快照", text4.includes("- [~] 任务1"));
-	check("注入消息来源标记为 plugin", at4.additionalContexts?.[0]?.source?.plugin === "dsh-todo-keeper");
+	check("注入消息来源 plugin 字段保留（0.1.x 旧宿主 UI 读它）", at4.additionalContexts?.[0]?.source?.plugin === "dsh-todo-keeper");
 	check("注入消息角色为 user", at4.additionalContexts?.[0]?.role === "user");
 
 	for (const n of [5, 6, 7]) {
@@ -145,14 +145,37 @@ console.log("\n[6] 插件自己注入的提醒不会触发重置");
 	for (let i = 0; i < 4; i += 1) await runCall(fire, agent, "pwsh", {});
 	await fire("agent/pre-step", {
 		agent,
-		messages: [{ source: { kind: "plugin", plugin: "dsh-todo-keeper" } }]
+		messages: [{ source: { kind: "dsh-todo-keeper", plugin: "dsh-todo-keeper" } }]
 	}, async () => {});
 	let fired = 0;
 	for (let i = 0; i < 4; i += 1) {
 		const d = await runCall(fire, agent, "pwsh", {});
 		if (d.additionalContexts !== undefined) fired += 1;
 	}
-	check("plugin 来源消息不重置计数（计数继续累加，未再触发）", fired === 0, `实际触发 ${fired} 次`);
+	check("插件自身来源消息不重置计数（计数继续累加，未再触发）", fired === 0, `实际触发 ${fired} 次`);
+}
+
+// v4 会话准入回归：官方桌面 0.2.0 起，持久化消息的 source.kind 禁止为 "plugin"
+// （dsh-session-format-v3-to-v4 的 assertV4SourceRowAdmission 硬拒绝，运行时无迁移
+// 转换层）。这条断言锁死「注入消息必须是 producer-owned kind」。
+console.log("\n[8] 注入消息的 source.kind 必须通过 v4 会话准入");
+{
+	const v4Admits = (source) =>
+		typeof source === "object" && source !== null &&
+		typeof source.kind === "string" && source.kind.length > 0 && source.kind !== "plugin";
+	const { ctx, fire } = makeCtx();
+	apply(ctx, { thresholds: [4, 8, 14], repeatEvery: 10, batchWarnAt: 4, includeTodoSnapshot: true });
+	const agent = { id: "a8" };
+	await runCall(fire, agent, "todo_write", { todos: list(["in_progress", "pending", "pending", "pending", "pending", "pending"]) });
+	for (let i = 0; i < 3; i += 1) await runCall(fire, agent, "pwsh", {});
+	const stale = (await runCall(fire, agent, "pwsh", {})).additionalContexts?.[0];
+	check("陈旧提醒注入成功", stale !== undefined);
+	check("陈旧提醒 source.kind 为 producer-owned（非 plugin）", v4Admits(stale?.source), JSON.stringify(stale?.source));
+	const batch = (await runCall(fire, agent, "todo_write", {
+		todos: list(["completed", "completed", "completed", "completed", "completed", "completed"])
+	})).additionalContexts?.[0];
+	check("批量警告注入成功", batch !== undefined);
+	check("批量警告 source.kind 为 producer-owned（非 plugin）", v4Admits(batch?.source), JSON.stringify(batch?.source));
 }
 
 console.log("\n[7] 参数解析与配置校验");
@@ -184,7 +207,7 @@ console.log("\n[7] 参数解析与配置校验");
 
 	const resolved = __test.resolveConfig({ thresholds: [8, 4] });
 	check("阈值会排序", JSON.stringify(resolved.thresholds) === "[4,8]");
-	check("未给配置时用默认值", JSON.stringify(__test.resolveConfig(undefined).thresholds) === "[4,8,14]");
+	check("未给配置时用默认值", JSON.stringify(__test.resolveConfig(undefined).thresholds) === "[9]");
 }
 
 console.log(`\n=== 结果：${pass} 项通过，${failures.length} 项失败 ===`);
